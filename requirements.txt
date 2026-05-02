@@ -1,0 +1,2 @@
+# Dependencias Python actuales del esqueleto base.
+# Por ahora no se requieren paquetes externos.
