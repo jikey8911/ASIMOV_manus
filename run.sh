@@ -1,5 +1,12 @@
-#!/bin/bash
+#!/usr/bin/env bash
+set -euo pipefail
+
 export PYTHONPATH=src
-# Para arrancar el main: .venv/bin/python -m asimov.main
-# Para arrancar el backend base con FastAPI:
-.venv/bin/uvicorn asimov.api:app --host 0.0.0.0 --port 8000 --reload
+
+if [[ ! -d ".venv" ]]; then
+  python3 -m venv .venv
+fi
+
+source .venv/bin/activate
+pip install -r requirements.txt
+exec .venv/bin/uvicorn asimov.api:app --host "${ASIMOV_HOST:-0.0.0.0}" --port "${ASIMOV_PORT:-8000}"

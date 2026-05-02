@@ -1,0 +1,16 @@
+[Unit]
+Description=ASIMOV backend
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/ASIMOV_manus
+Environment=PYTHONPATH=/home/ubuntu/ASIMOV_manus/src
+EnvironmentFile=/home/ubuntu/ASIMOV_manus/.env
+ExecStart=/home/ubuntu/ASIMOV_manus/.venv/bin/uvicorn asimov.api:app --host 0.0.0.0 --port 8000
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

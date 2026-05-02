@@ -1,0 +1,63 @@
+ Image asimov_manus-asimov-app Building 
+#1 [internal] load local bake definitions
+#1 reading from stdin 528B done
+#1 DONE 0.0s
+
+#2 [internal] load build definition from Dockerfile
+#2 transferring dockerfile: 415B done
+#2 DONE 0.0s
+
+#3 [auth] library/python:pull token for registry-1.docker.io
+#3 DONE 0.0s
+
+#4 [internal] load metadata for docker.io/library/python:3.12-slim
+#4 DONE 0.2s
+
+#5 [internal] load .dockerignore
+#5 transferring context: 2B done
+#5 DONE 0.0s
+
+#6 [internal] load build context
+#6 transferring context: 4.22kB done
+#6 DONE 0.0s
+
+#7 [1/6] FROM docker.io/library/python:3.12-slim@sha256:46cb7cc2877e60fbd5e21a9ae6115c30ace7a077b9f8772da879e4590c18c2e3
+#7 resolve docker.io/library/python:3.12-slim@sha256:46cb7cc2877e60fbd5e21a9ae6115c30ace7a077b9f8772da879e4590c18c2e3 0.0s done
+#7 DONE 0.0s
+
+#8 [4/6] RUN pip install --no-cache-dir --upgrade pip     && pip install --no-cache-dir -r requirements.txt
+#8 CACHED
+
+#9 [2/6] WORKDIR /app
+#9 CACHED
+
+#10 [3/6] COPY requirements.txt .
+#10 CACHED
+
+#11 [5/6] COPY pyproject.toml README.md ./
+#11 CACHED
+
+#12 [6/6] COPY src ./src
+#12 CACHED
+
+#13 exporting to image
+#13 exporting layers done
+#13 exporting manifest sha256:83252bb31a6cd8c3367ae11c577e4762cebb459ca0d7b8081e4b8bc6dee05b4a done
+#13 exporting config sha256:f27ece6f0a2528a792b90b5b17e8df9299c1ec3cab0b59e5d265209167325f23 done
+#13 exporting attestation manifest sha256:41b39c030fc6c7abb4783d6f2f94052a1b4db195a0452f6cfd80d8b9f45fbc69 0.0s done
+#13 exporting manifest list sha256:faf11c0fa7912e53d1364100d6cfea09f78844b833d34e9cea44b398d1bfdfd9 0.0s done
+#13 naming to docker.io/library/asimov_manus-asimov-app:latest done
+#13 unpacking to docker.io/library/asimov_manus-asimov-app:latest
+#13 unpacking to docker.io/library/asimov_manus-asimov-app:latest done
+#13 DONE 0.1s
+
+#14 resolving provenance for metadata file
+#14 DONE 0.0s
+ Image asimov_manus-asimov-app Built 
+ Container asimov-postgres Running 
+ Container asimov-redis Running 
+ Container asimov-ollama Running 
+ Container asimov-app Recreate 
+ Container asimov-app Recreated 
+ Container asimov-app Starting 
+ Container asimov-app Started 

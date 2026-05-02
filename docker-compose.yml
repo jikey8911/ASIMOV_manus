@@ -1,0 +1,56 @@
+services:
+  asimov-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: asimov-app
+    env_file:
+      - .env
+    depends_on:
+      - redis
+      - postgres
+      - ollama
+    ports:
+      - "8000:8000"
+    networks:
+      - default
+      - openclaw_clean_default
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: asimov-redis
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: asimov-postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: asimov-ollama
+    volumes:
+      - ollama_data:/root/.ollama
+    ports:
+      - "11434:11434"
+    restart: unless-stopped
+
+networks:
+  default:
+  openclaw_clean_default:
+    external: true
+
+volumes:
+  postgres_data:
+  ollama_data:

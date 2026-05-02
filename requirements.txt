@@ -24,6 +24,7 @@ ormsgpack==1.12.2
 packaging==26.2
 psycopg2-binary==2.9.12
 pydantic==2.13.3
+pydantic-settings==2.11.0
 pydantic_core==2.46.3
 PyYAML==6.0.3
 redis==7.4.0
