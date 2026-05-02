@@ -55,3 +55,12 @@ class ExecutionTask(BaseModel):
     owner: str
     instructions: str
     status: Status = Status.DRAFT
+
+
+class DigitalIdentity(BaseModel):
+    """Representa la UAE de Credenciales para los Agentes."""
+    email: str
+    passwords: dict[str, str] = Field(default_factory=dict)
+    session_cookies: dict[str, dict] = Field(default_factory=dict)
+    api_keys: dict[str, str] = Field(default_factory=dict)
+    active_sessions: list[str] = Field(default_factory=list)

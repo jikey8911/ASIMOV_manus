@@ -21,8 +21,10 @@ class MarketAnalystAgent:
     def scan(self) -> list[Opportunity]:
         prompt = (
             "You are a top-tier market analyst specializing in AI automation opportunities. "
-            "Identify 2 high-potential, niche, and actionable B2B automation opportunities "
-            "that can generate recurring revenue quickly. Focus on low-friction, high-value tasks. "
+            "Identify 2 high-potential B2B or B2C automation opportunities. "
+            "IMPORTANT: We are looking for strategies that generate at least 1000 USD weekly in aggregate. "
+            "The gains per transaction can be small (micro-transactions), but they must be highly repetitive "
+            "and scalable so that the sum easily exceeds the 1000 USD weekly minimum. "
             "Output the results in the requested format."
         )
         
@@ -66,7 +68,7 @@ class StrategicPlanningAgent:
         Risk Level: {opportunity.risk_level}
         
         Create a practical, actionable strategic goal. Define a clear target metric and its target value.
-        The target value must be a number representing USD. Output in the requested structure.
+        CRITICAL: The target_metric MUST represent Weekly Revenue (in USD) derived from high-volume, low-ticket repetitive actions. The target_value MUST be a numeric value representing the expected weekly USD (which should be >= 1000). Output in the requested structure.
         """
         
         structured_llm = self.llm.with_structured_output(StrategicGoal)
@@ -101,14 +103,19 @@ class EthicsAndRiskAgent:
 
     def approve(self, goal: StrategicGoal) -> bool:
         prompt = f"""
-        Evaluate the following strategic goal for a B2B automation business:
+        Evaluate the following strategic goal for an automation business:
         Name: {goal.name}
         Description: {goal.description}
         Target Metric: {goal.target_metric}
         Target Value: {goal.target_value}
         
-        Is this goal ethical, feasible, and presenting an acceptable risk level?
-        Approve it if it makes sense as a business goal. Output the decision and a short reason.
+        Evaluate based on these criteria:
+        1. Ethical and legal feasibility.
+        2. Acceptable risk level.
+        3. Financial Viability: Does the strategy demonstrate the potential to generate at least 1000 USD weekly? 
+           It is perfectly fine (and encouraged) if this is achieved through small, repetitive micro-gains that sum up to >= 1000 USD weekly.
+           
+        Approve it if it meets these criteria. Output the decision and a short reason explaining how it reaches the 1000 USD/week minimum through scale.
         """
         
         structured_llm = self.llm.with_structured_output(ApprovalResult)
