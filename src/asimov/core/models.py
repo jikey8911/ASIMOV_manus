@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
 from enum import Enum
+from pydantic import BaseModel, Field
 
 
 class Status(str, Enum):
@@ -12,8 +12,7 @@ class Status(str, Enum):
     FAILED = "failed"
 
 
-@dataclass(slots=True)
-class Opportunity:
+class Opportunity(BaseModel):
     name: str
     market: str
     problem: str
@@ -21,8 +20,7 @@ class Opportunity:
     risk_level: str = "medium"
 
 
-@dataclass(slots=True)
-class StrategicGoal:
+class StrategicGoal(BaseModel):
     name: str
     description: str
     target_metric: str
@@ -30,15 +28,13 @@ class StrategicGoal:
     status: Status = Status.DRAFT
 
 
-@dataclass(slots=True)
-class Hypothesis:
+class Hypothesis(BaseModel):
     statement: str
     expected_outcome: str
     metric: str
 
 
-@dataclass(slots=True)
-class Experiment:
+class Experiment(BaseModel):
     name: str
     hypothesis: Hypothesis
     execution_plan: list[str]
@@ -46,17 +42,15 @@ class Experiment:
     status: Status = Status.DRAFT
 
 
-@dataclass(slots=True)
-class Strategy:
+class Strategy(BaseModel):
     name: str
     goal: StrategicGoal
-    experiments: list[Experiment] = field(default_factory=list)
-    execution_notes: list[str] = field(default_factory=list)
+    experiments: list[Experiment] = Field(default_factory=list)
+    execution_notes: list[str] = Field(default_factory=list)
     status: Status = Status.DRAFT
 
 
-@dataclass(slots=True)
-class ExecutionTask:
+class ExecutionTask(BaseModel):
     name: str
     owner: str
     instructions: str
