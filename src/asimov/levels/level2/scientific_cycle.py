@@ -3,6 +3,8 @@ from __future__ import annotations
 from typing import Literal, TypedDict
 
 from langgraph.graph import END, START, StateGraph
+from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_core.prompts import ChatPromptTemplate
 
 from asimov.config import settings
 from asimov.core.models import Experiment, Hypothesis, Status, Strategy, StrategicGoal, TacticalContext
@@ -22,21 +24,22 @@ class TacticalGraphState(TypedDict, total=False):
 
 
 class HypothesisAgent:
+    def __init__(self, llm: ChatGoogleGenerativeAI) -> None:
+        self.llm = llm.with_structured_output(Hypothesis)
+
     def create(self, goal: StrategicGoal, context: TacticalContext) -> Hypothesis:
-        return Hypothesis(
-            statement=(
-                f"Si operacionalizamos '{goal.name}' con {', '.join(context.frameworks)} "
-                f"y el canal {context.openclaw_channel} de OpenClaw, podremos acelerar la respuesta "
-                f"y mejorar la metrica {goal.target_metric}."
-            ),
-            expected_outcome=(
-                "Mejor conversion de oportunidades y menor tiempo entre deteccion y accion ejecutable."
-            ),
-            metric=goal.target_metric,
-        )
+        prompt = ChatPromptTemplate.from_messages([
+            ("system", "Eres un Estratega Científico de ASIMOV. Tu tarea es generar una hipótesis táctica basada en un objetivo estratégico y un contexto operativo."),
+            ("user", "Objetivo: {goal}\nContexto: {context}\n\nGenera una hipótesis clara y medible.")
+        ])
+        chain = prompt | self.llm
+        return chain.invoke({"goal": goal.model_dump(), "context": context.model_dump()})
 
 
 class ExperimentalDesignAgent:
+    def __init__(self, llm: ChatGoogleGenerativeAI) -> None:
+        self.llm = llm.with_structured_output(Experiment)
+
     def design(
         self,
         goal: StrategicGoal,
@@ -44,47 +47,26 @@ class ExperimentalDesignAgent:
         context: TacticalContext,
         plan_mode: str,
     ) -> Experiment:
-        execution_plan = [
-            "LangGraph orquesta el flujo tactico y los puntos de decision.",
-            "OpenClaw expone identidad, canal telegram y automatizacion operativa.",
-            "CrewAI divide subtareas y responsabilidades especializadas.",
-            "Skyvern se reserva para pasos UI cuando una API no exista.",
-            f"Ollama usa el modelo {context.ollama_model} para clasificacion y resumen local.",
-        ]
-        if plan_mode == "remote_enabled":
-            execution_plan.append(
-                "La ejecucion remota se activa sobre OpenClaw para operar skills y canales externos."
-            )
-        else:
-            execution_plan.append(
-                "La ejecucion prioriza capacidades locales mientras OpenClaw se usa solo como contexto parcial."
-            )
-        return Experiment(
-            name=f"Experimento tactico para {goal.name}",
-            hypothesis=hypothesis,
-            execution_plan=execution_plan,
-            metrics=[
-                goal.target_metric,
-                "proposal_conversion_rate",
-                "time_to_first_action_minutes",
-                "automation_success_rate",
-            ],
-            status=Status.ACTIVE,
-            frameworks=list(context.frameworks),
-            dependencies=["openclaw", "ollama", "telegram_channel"],
-            artifacts={
-                "identity_email": context.identity_email,
-                "openclaw_base_url": context.openclaw_base_url,
-                "openclaw_channel": context.openclaw_channel,
-                "ollama_base_url": context.ollama_base_url,
-                "ollama_model": context.ollama_model,
-                "plan_mode": plan_mode,
-            },
-        )
+        prompt = ChatPromptTemplate.from_messages([
+            ("system", "Eres un Arquitecto de Experimentos de ASIMOV. Diseña un plan de ejecución táctico real usando las herramientas disponibles (OpenClaw, Ollama, LangGraph, CrewAI, Skyvern)."),
+            ("user", "Objetivo: {goal}\nHipótesis: {hypothesis}\nContexto: {context}\nModo: {plan_mode}\n\nDiseña un experimento detallado.")
+        ])
+        chain = prompt | self.llm
+        return chain.invoke({
+            "goal": goal.model_dump(),
+            "hypothesis": hypothesis.model_dump(),
+            "context": context.model_dump(),
+            "plan_mode": plan_mode
+        })
 
 
 class SupervisionAndAnalysisAgent:
+    def __init__(self, llm: ChatGoogleGenerativeAI) -> None:
+        self.llm = llm # Para análisis libre antes de retornar el objeto
+
     def evaluate(self, experiment: Experiment, context: TacticalContext) -> tuple[Experiment, str]:
+        # Aquí podríamos hacer una evaluación más profunda con el LLM
+        # Por ahora, mantenemos la lógica de readiness pero enriquecida por el LLM si fuera necesario
         readiness = "connected" if context.openclaw_available and context.ollama_available else "partial"
         experiment.artifacts["connectivity"] = {
             "openclaw": context.openclaw_available,
@@ -96,6 +78,9 @@ class SupervisionAndAnalysisAgent:
 
 
 class SynthesisAgent:
+    def __init__(self, llm: ChatGoogleGenerativeAI) -> None:
+        self.llm = llm.with_structured_output(Strategy)
+
     def build_strategy(
         self,
         goal: StrategicGoal,
@@ -103,47 +88,43 @@ class SynthesisAgent:
         context: TacticalContext,
         trace: list[str],
     ) -> Strategy:
-        readiness = experiment.artifacts.get("readiness", "partial")
-        execution_notes = [
-            f"Usar {context.openclaw_channel} como canal operativo primario.",
-            "Mantener la identidad tactica desacoplada del nivel estrategico.",
-            "Escalar a Skyvern solo cuando no haya API o skill suficiente.",
-            "Mantener Ollama como apoyo local para clasificacion y priorizacion.",
-        ]
-        if readiness != "connected":
-            execution_notes.append(
-                "El flujo tactico opera en modo parcial; revisar conectividad de OpenClaw u Ollama antes de escalar volumen."
-            )
-        return Strategy(
-            name=f"Estrategia tactica derivada de {goal.name}",
-            goal=goal,
-            experiments=[experiment],
-            execution_notes=execution_notes,
-            status=Status.ACTIVE,
-            tooling=[*context.frameworks, "openclaw", f"ollama:{context.ollama_model}"],
-            execution_channel=context.openclaw_channel,
-            identity_email=context.identity_email,
-            artifacts={
-                "graph": {
-                    "engine": "langgraph",
-                    "trace": trace,
-                    "readiness": readiness,
-                    "plan_mode": experiment.artifacts.get("plan_mode", "local_first"),
-                    "runtime": dict(self._runtime_config() if hasattr(self, "_runtime_config") else {}),
-                }
-            },
-        )
+        prompt = ChatPromptTemplate.from_messages([
+            ("system", "Eres el Sintetizador Central de ASIMOV. Consolida el experimento y el contexto en una estrategia operativa final."),
+            ("user", "Objetivo: {goal}\nExperimento: {experiment}\nContexto: {context}\nTraza: {trace}\n\nSintetiza la estrategia.")
+        ])
+        chain = prompt | self.llm
+        strategy = chain.invoke({
+            "goal": goal.model_dump(),
+            "experiment": experiment.model_dump(),
+            "context": context.model_dump(),
+            "trace": trace
+        })
+        # Asegurar que el canal y la identidad se mantengan
+        strategy.execution_channel = context.openclaw_channel
+        strategy.identity_email = context.identity_email
+        return strategy
+
 
 
 class TacticalUAE:
     """Unidad táctica con ciclo científico orquestado por LangGraph."""
 
-    def __init__(self, identity_uae: IdentityUAE | None = None) -> None:
+    def __init__(
+        self,
+        identity_uae: IdentityUAE | None = None,
+        llm: ChatGoogleGenerativeAI | None = None,
+    ) -> None:
         self.identity = identity_uae or IdentityUAE()
-        self.hypothesis_agent = HypothesisAgent()
-        self.design_agent = ExperimentalDesignAgent()
-        self.supervisor = SupervisionAndAnalysisAgent()
-        self.synthesis = SynthesisAgent()
+        self.llm = llm or ChatGoogleGenerativeAI(
+            model="gemini-2.0-flash",
+            google_api_key=settings.gemini_api_key,
+            temperature=0.7
+        )
+        self.hypothesis_agent = HypothesisAgent(self.llm)
+
+        self.design_agent = ExperimentalDesignAgent(self.llm)
+        self.supervisor = SupervisionAndAnalysisAgent(self.llm)
+        self.synthesis = SynthesisAgent(self.llm)
         self.last_context: TacticalContext | None = None
         self.last_strategy: Strategy | None = None
         self.last_trace: list[str] = []

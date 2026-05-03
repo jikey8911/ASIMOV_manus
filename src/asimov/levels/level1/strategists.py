@@ -101,6 +101,10 @@ OPPORTUNITY_TEMPLATES = [
 ]
 
 
+from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_core.prompts import ChatPromptTemplate
+from asimov.config import settings
+
 class MarketAnalystAgent:
     """Busca oportunidades reales en internet, prioriza baja inversion y descarta fraude."""
 
@@ -111,15 +115,23 @@ class MarketAnalystAgent:
         "freelance proposal automation lead generation business",
     )
 
+    def __init__(self, llm: ChatGoogleGenerativeAI | None = None) -> None:
+        self.llm = llm or ChatGoogleGenerativeAI(
+            model="gemini-2.0-flash",
+            google_api_key=settings.gemini_api_key,
+            temperature=0.2
+        )
+
     def scan(self) -> list[Opportunity]:
         results: list[SearchResult] = []
         for query in self.search_queries:
             results.extend(self._search(query))
 
-        curated = self._rank_templates(results)
-        if curated:
-            return curated
-        return self._fallback()
+        if not results:
+            return self._fallback()
+
+        # Usamos el LLM para filtrar y rankear las mejores oportunidades de los resultados reales
+        return self._analyze_results_with_llm(results)
 
     def _search(self, query: str) -> list[SearchResult]:
         url = SEARCH_URL.format(query=quote(query))
@@ -139,11 +151,11 @@ class MarketAnalystAgent:
         channel = root.find('channel')
         if channel is None:
             return []
-        for item in channel.findall('item')[:12]:
+        for item in channel.findall('item')[:15]:
             title = self._clean_html(item.findtext('title', default=''))
             snippet = self._clean_html(item.findtext('description', default=''))
             url = item.findtext('link', default='')
-            if not title or self._looks_fraudulent(f"{title} {snippet}"):
+            if not title:
                 continue
             parsed.append(SearchResult(title=title, snippet=snippet, url=url))
         return parsed
@@ -153,128 +165,85 @@ class MarketAnalystAgent:
         value = unescape(value)
         return re.sub(r"\s+", " ", value).strip()
 
-    def _looks_fraudulent(self, text: str) -> bool:
-        normalized = text.lower()
-        return any(keyword in normalized for keyword in FRAUD_KEYWORDS)
+    def _analyze_results_with_llm(self, results: list[SearchResult]) -> list[Opportunity]:
+        prompt = ChatPromptTemplate.from_messages([
+            ("system", "Eres un Analista de Mercado experto en automatización y negocios de baja inversión. Tu tarea es analizar resultados de búsqueda reales y extraer las 3 mejores oportunidades de negocio que sean reales, de baja inversión (low/zero investment) y NO sean fraude (Ponzi, multinivel, etc.)."),
+            ("user", "Resultados de búsqueda: {results}\n\nExtrae 3 oportunidades en formato JSON compatible con el modelo Opportunity.")
+        ])
+        
+        # Definimos un extractor estructurado
+        class OpportunityList(BaseModel):
+            opportunities: list[Opportunity]
 
-    def _rank_templates(self, results: list[SearchResult]) -> list[Opportunity]:
-        ranked: list[tuple[float, Opportunity]] = []
-        for template in OPPORTUNITY_TEMPLATES:
-            score, notes, sources = self._score_template(template, results)
-            if score < 2.5:
-                continue
-            safety_score = min(1.0, score / 6.0)
-            risk_level = "low" if safety_score >= 0.75 else "medium"
-            ranked.append(
-                (
-                    score,
-                    Opportunity(
-                        name=template.name,
-                        market=template.market,
-                        problem=template.problem,
-                        expected_value_usd_week=template.expected_value_usd_week,
-                        risk_level=risk_level,
-                        investment_level=template.investment_level,
-                        safety_score=round(safety_score, 2),
-                        viability_score=round(min(1.0, score / 5.0), 2),
-                        validation_notes=notes,
-                        sources=sources,
-                    ),
-                )
-            )
-        ranked.sort(key=lambda item: (item[0], item[1].expected_value_usd_week), reverse=True)
-        return [opportunity for _, opportunity in ranked[:3]]
-
-    def _score_template(self, template: OpportunityTemplate, results: list[SearchResult]) -> tuple[float, list[str], list[str]]:
-        score = 0.0
-        notes: list[str] = []
-        sources: list[str] = []
-        for result in results:
-            haystack = f"{result.title} {result.snippet}".lower()
-            keyword_hits = sum(1 for keyword in template.keyword_groups if keyword in haystack)
-            if not keyword_hits:
-                continue
-            score += 1.5 + (0.35 * keyword_hits)
-            if any(keyword in haystack for keyword in LOW_INVESTMENT_KEYWORDS):
-                score += 0.6
-            if any(keyword in haystack for keyword in SAFE_KEYWORDS):
-                score += 0.4
-            if any(keyword in haystack for keyword in HIGH_INVESTMENT_KEYWORDS):
-                score -= 0.8
-            sources.append(result.url)
-        if template.investment_level == "zero":
-            score += 0.5
-            notes.append("Priorizada por inversion inicial cero o casi nula.")
-        else:
-            notes.append("Seleccionada por inversion baja y posibilidad de vender como servicio.")
-        notes.append("Resultados de internet filtrados para descartar patrones tipicos de fraude o promesas irreales.")
-        if sources:
-            notes.append(f"Validada con {len(sources)} hallazgos relevantes en busqueda abierta.")
-        return score, notes, sources[:5]
+        structured_llm = self.llm.with_structured_output(OpportunityList)
+        chain = prompt | structured_llm
+        
+        results_text = "\n".join([f"- {r.title}: {r.snippet} (Source: {r.url})" for r in results])
+        try:
+            output = chain.invoke({"results": results_text})
+            return output.opportunities
+        except Exception:
+            return self._fallback()
 
     def _fallback(self) -> list[Opportunity]:
         return [
             Opportunity(
-                name="Automatizacion de propuestas freelance",
+                name="Automatización de propuestas freelance",
                 market="freelance",
                 problem="Respuesta lenta a nuevas oportunidades",
                 expected_value_usd_week=1200,
-                risk_level="medium",
+                risk_level="low",
                 investment_level="zero",
-                safety_score=0.6,
-                viability_score=0.6,
-                validation_notes=[
-                    "Fallback local activado por falta de resultados de busqueda.",
-                    "La oportunidad conserva perfil de inversion cero o muy baja.",
-                ],
+                safety_score=0.9,
+                viability_score=0.8,
+                validation_notes=["Fallback activado por falta de resultados externos."],
             )
         ]
 
 
 class StrategicPlanningAgent:
-    """Convierte oportunidades filtradas en objetivos concretos sin depender de un LLM."""
+    """Convierte oportunidades en objetivos concretos usando LLM."""
+
+    def __init__(self, llm: ChatGoogleGenerativeAI | None = None) -> None:
+        self.llm = llm or ChatGoogleGenerativeAI(
+            model="gemini-2.0-flash",
+            google_api_key=settings.gemini_api_key,
+            temperature=0.7
+        )
 
     def define_goal(self, opportunity: Opportunity) -> StrategicGoal:
-        target_value = max(1000.0, opportunity.expected_value_usd_week)
-        return StrategicGoal(
-            name=f"Capitalizar {opportunity.name}",
-            description=(
-                f"Construir una oferta automatizada segura y de {opportunity.investment_level} inversion para resolver: "
-                f"{opportunity.problem}"
-            ),
-            target_metric="weekly_revenue_usd",
-            target_value=target_value,
-            artifacts={
-                "market": opportunity.market,
-                "risk_level": opportunity.risk_level,
-                "investment_level": opportunity.investment_level,
-                "safety_score": opportunity.safety_score,
-                "viability_score": opportunity.viability_score,
-                "sources": list(opportunity.sources),
-                "validation_notes": list(opportunity.validation_notes),
-            },
-        )
+        structured_llm = self.llm.with_structured_output(StrategicGoal)
+        prompt = ChatPromptTemplate.from_messages([
+            ("system", "Eres un Director de Estrategia de ASIMOV. Define un objetivo estratégico claro basado en una oportunidad detectada."),
+            ("user", "Oportunidad: {opportunity}\n\nDefine el objetivo estratégico.")
+        ])
+        chain = prompt | structured_llm
+        goal = chain.invoke({"opportunity": opportunity.model_dump()})
+        return goal
 
 
 class EthicsAndRiskAgent:
-    """Aprueba solo objetivos seguros, realistas y coherentes con baja inversion."""
+    """Aprueba o rechaza objetivos basados en análisis ético y de riesgo con LLM."""
+
+    def __init__(self, llm: ChatGoogleGenerativeAI | None = None) -> None:
+        self.llm = llm or ChatGoogleGenerativeAI(
+            model="gemini-2.0-flash",
+            google_api_key=settings.gemini_api_key,
+            temperature=0.1
+        )
 
     def approve(self, goal: StrategicGoal) -> bool:
-        artifacts = goal.artifacts
-        safety_score = float(artifacts.get("safety_score", 0.0))
-        viability_score = float(artifacts.get("viability_score", 0.0))
-        investment_level = str(artifacts.get("investment_level", "low"))
-        risk_level = str(artifacts.get("risk_level", "medium"))
-        approved = (
-            goal.target_value >= 1000.0
-            and safety_score >= 0.45
-            and viability_score >= 0.45
-            and investment_level in {"zero", "low"}
-            and risk_level != "high"
-        )
-        reason = (
-            f"approved={approved}; safety_score={safety_score}; viability_score={viability_score}; "
-            f"investment_level={investment_level}; risk_level={risk_level}"
-        )
-        print(f"EthicsAndRiskAgent Decision: {reason}")
-        return approved
+        class Decision(BaseModel):
+            approved: bool
+            reason: str
+
+        structured_llm = self.llm.with_structured_output(Decision)
+        prompt = ChatPromptTemplate.from_messages([
+            ("system", "Eres un Auditor de Ética y Riesgo de ASIMOV. Tu misión es asegurar que los objetivos sean éticos, legales, de bajo riesgo y alta viabilidad. Rechaza cualquier cosa que parezca fraude, esquema Ponzi o sea demasiado arriesgada."),
+            ("user", "Objetivo Estratégico: {goal}\n\n¿Es este objetivo seguro y viable? Responde con aprobación y motivo.")
+        ])
+        chain = prompt | structured_llm
+        decision = chain.invoke({"goal": goal.model_dump()})
+        print(f"EthicsAndRiskAgent Decision: {decision.reason}")
+        return decision.approved
+

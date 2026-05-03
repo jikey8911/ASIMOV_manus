@@ -29,20 +29,30 @@ class OrchestrationResult:
     report: str
 
 
+from langchain_google_genai import ChatGoogleGenerativeAI
+from asimov.config import settings
+
 class AsimovOrchestrator:
     """Conecta los ciclos A y B de forma simplificada."""
 
     def __init__(self) -> None:
-        self.market = MarketAnalystAgent()
-        self.planner = StrategicPlanningAgent()
-        self.risk = EthicsAndRiskAgent()
-        self.tactical = TacticalUAE()
+        self.llm = ChatGoogleGenerativeAI(
+            model="gemini-2.0-flash",
+            google_api_key=settings.gemini_api_key,
+            temperature=0.7
+        )
+        self.market = MarketAnalystAgent(self.llm)
+        self.planner = StrategicPlanningAgent(self.llm)
+        self.risk = EthicsAndRiskAgent(self.llm)
+        self.tactical = TacticalUAE(llm=self.llm)
         self.integration = IntegrationAgent()
+
         self.data = DataCollectionAgent()
         self.executor = ProcessExecutionAgent()
         self.quality = QualityControlAgent()
         self.broker = BrokerUAE()
         self.user = UserUAE()
+
 
     def run(self) -> OrchestrationResult:
         opportunity = self.market.scan()[0]

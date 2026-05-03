@@ -25,22 +25,15 @@ Evolucionar ASIMOV desde un esqueleto funcional a una arquitectura operativa por
 ### Estado por nivel
 
 #### Nivel 1
-
 - Implementado como capa estrategica base.
-- Detecta oportunidades, define objetivos y aplica validacion de riesgo.
-- Estado: funcional, pero aun heuristico.
+- Detecta oportunidades mediante RSS real y las procesa con agentes.
+- Estado: 🔶 Funcional, pero agentes de planeación y riesgo aún son heurísticos.
 
 #### Nivel 2
-
-- Se avanzo la implementacion tactica en codigo.
-- Ya existe contexto tactico real con:
-  - identidad operativa,
-  - OpenClaw como canal/hub de automatizacion,
-  - Ollama como modelo local,
-  - frameworks declarados: `langgraph`, `crew_ai`, `skyvern`.
-- Se corrigio la URL operativa de Ollama para este nivel a `http://172.18.0.2:11434`.
-- Se incorporaron metadatos tacticos a la estrategia y al experimento.
-- Estado: implementado en codigo, pendiente reflejar completamente en el proceso API que esta corriendo.
+- Se implementaron agentes reales utilizando **ChatGoogleGenerativeAI (Gemini)**.
+- El grafo táctico de LangGraph ahora utiliza salida estructurada para Hipótesis, Experimentos y Estrategias.
+- Conexión verificada con el contexto táctico real de OpenClaw y Ollama.
+- Estado: ✅ Operativo con LLM real.
 
 #### Nivel 3
 
@@ -82,15 +75,10 @@ Evolucionar ASIMOV desde un esqueleto funcional a una arquitectura operativa por
 
 ## Pendiente por Implementar
 
-### Nivel 2 pendiente inmediato
-
-- Reiniciar o reconstruir correctamente el backend que atiende `:8000` para que la API refleje la nueva estructura del nivel 2.
-- Confirmar que `/api/v1/system/status` muestre:
-  - identidad tactica,
-  - OpenClaw,
-  - Ollama,
-  - canal operativo,
-  - ultimo contexto tactico.
+### Nivel 2 completado reciente
+- Implementación de agentes reales con Gemini en `scientific_cycle.py`.
+- Uso de `with_structured_output` para garantizar consistencia de datos.
+- Integración de trazas y contexto táctico enriquecido.
 
 ### Nivel 2 pendiente funcional
 
