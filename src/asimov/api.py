@@ -27,6 +27,12 @@ class SystemStatusResponse(BaseModel):
     system: dict[str, Any]
 
 
+class CredentialsStatusResponse(BaseModel):
+    app: str
+    environment: str
+    credentials: dict[str, Any]
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     services = InfrastructureServices()
@@ -65,6 +71,16 @@ async def system_status(request: Request) -> SystemStatusResponse:
         app=settings.app_name,
         environment=settings.environment,
         system=runtime.system_status(),
+    )
+
+
+@app.get("/api/v1/system/credentials", response_model=CredentialsStatusResponse)
+async def credentials_status(request: Request) -> CredentialsStatusResponse:
+    runtime: RuntimeState = request.app.state.runtime
+    return CredentialsStatusResponse(
+        app=settings.app_name,
+        environment=settings.environment,
+        credentials=runtime.system_status()["uaes"]["credentials"],
     )
 
 

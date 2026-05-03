@@ -22,6 +22,9 @@ class OrchestrationResult:
     opportunity_name: str
     goal_name: str
     strategy_name: str
+    tactical_identity_email: str
+    tactical_channel: str
+    tactical_tooling: list[str]
     executed_tasks: list[str]
     report: str
 
@@ -59,14 +62,17 @@ class AsimovOrchestrator:
             raise RuntimeError("Fallo el control de calidad.")
 
         report = (
-            f"Ciclo A genero la estrategia '{strategy.name}' y ciclo B completo "
-            f"{len(executed)} tareas iniciales."
+            f"Ciclo A genero la estrategia '{strategy.name}' y ciclo B completo {len(executed)} tareas. "
+            f"Nivel 2 opera con {strategy.execution_channel} usando la identidad {strategy.identity_email}."
         )
         self.user.publish_status(report)
         return OrchestrationResult(
             opportunity_name=opportunity.name,
             goal_name=goal.name,
             strategy_name=strategy.name,
+            tactical_identity_email=strategy.identity_email or "",
+            tactical_channel=strategy.execution_channel or "",
+            tactical_tooling=list(strategy.tooling),
             executed_tasks=[task.name for task in executed],
             report=report,
         )

@@ -6,9 +6,38 @@ from dataclasses import dataclass, field
 @dataclass(slots=True)
 class CredentialsUAE:
     services: dict[str, str] = field(default_factory=dict)
+    password_services: list[str] = field(default_factory=list)
+    api_key_services: list[str] = field(default_factory=list)
+    session_services: list[str] = field(default_factory=list)
+    backends: list[str] = field(default_factory=lambda: ["memory", "openclaw"])
+    identity_email: str = "agent@asimov.local"
+    openclaw_configured: bool = False
 
     def register_service(self, service: str, purpose: str) -> None:
         self.services[service] = purpose
+
+    def register_password(self, service: str) -> None:
+        if service not in self.password_services:
+            self.password_services.append(service)
+
+    def register_api_key(self, service: str) -> None:
+        if service not in self.api_key_services:
+            self.api_key_services.append(service)
+
+    def register_session(self, service: str) -> None:
+        if service not in self.session_services:
+            self.session_services.append(service)
+
+    def snapshot(self) -> dict[str, object]:
+        return {
+            "identity_email": self.identity_email,
+            "openclaw_configured": self.openclaw_configured,
+            "services": dict(self.services),
+            "password_services": list(self.password_services),
+            "api_key_services": list(self.api_key_services),
+            "session_services": list(self.session_services),
+            "backends": list(self.backends),
+        }
 
 
 @dataclass(slots=True)
